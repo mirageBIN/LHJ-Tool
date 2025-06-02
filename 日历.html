@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>梁惠辑的专属工具箱 - 日历</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --secondary: #f43f5e;
+            --bg: #f8fafc;
+            --text: #1e293b;
+            --calendar-bg: #ffffff;
+            --header-bg: #f1f5f9;
+            --day-bg: #f8fafc;
+            --today-bg: #4f46e5;
+            --holiday-bg: #f43f5e;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .dark {
+            --primary: #818cf8;
+            --secondary: #fb7185;
+            --bg: #1e293b;
+            --text: #f8fafc;
+            --calendar-bg: #334155;
+            --header-bg: #475569;
+            --day-bg: #1e293b;
+            --today-bg: #818cf8;
+            --holiday-bg: #fb7185;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            transition: all 0.3s ease;
+        }
+
+        .calendar {
+            background-color: var(--calendar-bg);
+            box-shadow: var(--shadow);
+            border-radius: 1.5rem;
+            overflow: hidden;
+            transform: scale(1);
+            transition: all 0.3s ease;
+        }
+
+        .calendar:hover {
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            background-color: var(--header-bg);
+            transition: all 0.3s ease;
+        }
+
+        .day {
+            background-color: var(--day-bg);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .day::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.1);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .day:hover::after {
+            opacity: 1;
+        }
+
+        .today {
+            background-color: var(--today-bg);
+            color: white;
+        }
+
+        .holiday {
+            background-color: var(--holiday-bg);
+            color: white;
+        }
+
+        .other-month {
+            opacity: 0.5;
+        }
+
+        .theme-toggle {
+            background: linear-gradient(145deg, var(--primary), var(--secondary));
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ripple:after {
+            content: "";
+            display: block;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            background-image: radial-gradient(circle, #fff 10%, transparent 10.01%);
+            background-repeat: no-repeat;
+            background-position: 50%;
+            transform: scale(10, 10);
+            opacity: 0;
+            transition: transform .5s, opacity 1s;
+        }
+
+        .ripple:active:after {
+            transform: scale(0, 0);
+            opacity: .3;
+            transition: 0s;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-4 md:p-8">
+    <div class="w-full max-w-4xl">
+        <!-- 主题切换按钮 -->
+        <div class="flex justify-end mb-4">
+            <button id="themeToggle" class="theme-toggle w-12 h-12 rounded-full flex items-center justify-center text-white ripple">
+                <i class="fas fa-moon text-xl"></i>
+            </button>
+        </div>
+
+        <!-- 日历标题 -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold mb-2">梁惠辑的专属日历</h1>
+            <div class="flex justify-center items-center space-x-4">
+                <button id="prevMonth" class="text-xl ripple rounded-full w-10 h-10 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <h2 id="monthYear" class="text-2xl md:text-3xl font-semibold">2023年10月</h2>
+                <button id="nextMonth" class="text-xl ripple rounded-full w-10 h-10 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-600">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 日历主体 -->
+        <div class="calendar">
+            <!-- 星期标题 -->
+            <div class="header grid grid-cols-7 text-center font-semibold py-3">
+                <div class="p-2">周日</div>
+                <div class="p-2">周一</div>
+                <div class="p-2">周二</div>
+                <div class="p-2">周三</div>
+                <div class="p-2">周四</div>
+                <div class="p-2">周五</div>
+                <div class="p-2">周六</div>
+            </div>
+
+            <!-- 日期格子 -->
+            <div id="daysGrid" class="grid grid-cols-7 gap-1 p-2">
+                <!-- 日期将通过JavaScript动态生成 -->
+            </div>
+        </div>
+
+        <!-- 节日/假期信息 -->
+        <div id="eventInfo" class="mt-6 p-4 rounded-xl bg-gray-100 dark:bg-gray-700 transition-all duration-300 opacity-0 h-0 overflow-hidden">
+            <h3 class="font-semibold text-lg mb-2" id="eventTitle">节日信息</h3>
+            <p id="eventDescription"></p>
+        </div>
+    </div>
+
+    <script>
+        // 当前显示的月份和年份
+        let currentDate = new Date();
+        let currentMonth = currentDate.getMonth();
+        let currentYear = currentDate.getFullYear();
+
+        // 节日数据 (简化版)
+        const holidays = {
+            '1-1': { title: '元旦', description: '新年第一天，法定假日' },
+            '2-14': { title: '情人节', description: '浪漫的情人节' },
+            '5-1': { title: '劳动节', description: '国际劳动节，法定假日' },
+            '6-1': { title: '儿童节', description: '国际儿童节' },
+            '10-1': { title: '国庆节', description: '中华人民共和国国庆日，法定假日' },
+            '12-25': { title: '圣诞节', description: '西方传统节日' }
+        };
+
+        // 农历节日 (模拟数据)
+        const lunarHolidays = {
+            '1-1': { title: '春节', description: '农历新年，中国最重要的传统节日' },
+            '1-15': { title: '元宵节', description: '农历正月十五，赏花灯吃元宵' },
+            '5-5': { title: '端午节', description: '农历五月初五，吃粽子赛龙舟' },
+            '8-15': { title: '中秋节', description: '农历八月十五，赏月吃月饼' }
+        };
+
+        // 生成日历
+        function generateCalendar() {
+            const daysGrid = document.getElementById('daysGrid');
+            daysGrid.innerHTML = '';
+
+            // 更新月份年份显示
+            document.getElementById('monthYear').textContent = `${currentYear}年${currentMonth + 1}月`;
+
+            // 获取当月第一天
+            const firstDay = new Date(currentYear, currentMonth, 1);
+            // 获取当月天数
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            // 获取第一天是星期几 (0-6)
+            const firstDayOfWeek = firstDay.getDay();
+
+            // 添加上个月的日期
+            const prevMonthDays = new Date(currentYear, currentMonth, 0).getDate();
+            for (let i = 0; i < firstDayOfWeek; i++) {
+                const dayElement = createDayElement(prevMonthDays - firstDayOfWeek + i + 1, true);
+                daysGrid.appendChild(dayElement);
+            }
+
+            // 添加当月的日期
+            const today = new Date();
+            for (let i = 1; i <= daysInMonth; i++) {
+                const isToday = currentYear === today.getFullYear() && 
+                                currentMonth === today.getMonth() && 
+                                i === today.getDate();
+                
+                // 检查是否是节日或假期
+                const holidayKey = `${currentMonth + 1}-${i}`;
+                const isHoliday = holidays[holidayKey] || lunarHolidays[holidayKey];
+                
+                const dayElement = createDayElement(i, false, isToday, isHoliday);
+                daysGrid.appendChild(dayElement);
+            }
+
+            // 添加下个月的日期
+            const daysToAdd = 42 - (firstDayOfWeek + daysInMonth); // 确保日历总是6行
+            for (let i = 1; i <= daysToAdd; i++) {
+                const dayElement = createDayElement(i, true);
+                daysGrid.appendChild(dayElement);
+            }
+
+            // 添加淡入动画
+            const dayElements = document.querySelectorAll('.day');
+            dayElements.forEach((day, index) => {
+                day.style.animationDelay = `${index * 0.05}s`;
+                day.classList.add('fade-in');
+            });
+        }
+
+        // 创建日期元素
+        function createDayElement(day, isOtherMonth, isToday = false, isHoliday = false) {
+            const dayElement = document.createElement('div');
+            dayElement.className = 'day rounded-lg p-2 text-center cursor-pointer ripple';
+            
+            if (isOtherMonth) {
+                dayElement.classList.add('other-month');
+            }
+            
+            if (isToday) {
+                dayElement.classList.add('today', 'pulse');
+            }
+            
+            if (isHoliday) {
+                dayElement.classList.add('holiday');
+            }
+
+            // 阳历日期
+            const solarDate = document.createElement('div');
+            solarDate.className = 'font-semibold text-lg';
+            solarDate.textContent = day;
+            dayElement.appendChild(solarDate);
+
+            // 农历日期 (模拟)
+            const lunarDate = document.createElement('div');
+            lunarDate.className = 'text-xs opacity-80';
+            lunarDate.textContent = getLunarDay(day);
+            dayElement.appendChild(lunarDate);
+
+            // 节日/假期标记
+            if (isHoliday) {
+                const holidayKey = `${currentMonth + 1}-${day}`;
+                const holiday = holidays[holidayKey] || lunarHolidays[holidayKey];
+                
+                const holidayMark = document.createElement('div');
+                holidayMark.className = 'absolute top-1 right-1 w-2 h-2 rounded-full bg-white';
+                dayElement.appendChild(holidayMark);
+
+                // 点击显示节日信息
+                dayElement.addEventListener('click', () => {
+                    showEventInfo(holiday.title, holiday.description);
+                });
+            }
+
+            return dayElement;
+        }
+
+        // 模拟获取农历日期 (简化版)
+        function getLunarDay(day) {
+            // 在实际应用中，这里应该调用农历转换库
+            // 这里只是简单模拟
+            const lunarDays = ['初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十',
+                              '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十',
+                              '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十'];
+            return lunarDays[(day - 1) % 30];
+        }
+
+        // 显示节日信息
+        function showEventInfo(title, description) {
+            const eventInfo = document.getElementById('eventInfo');
+            const eventTitle = document.getElementById('eventTitle');
+            const eventDescription = document.getElementById('eventDescription');
+            
+            eventTitle.textContent = title;
+            eventDescription.textContent = description;
+            
+            eventInfo.style.opacity = '1';
+            eventInfo.style.height = 'auto';
+            eventInfo.style.padding = '1rem';
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                eventInfo.style.opacity = '0';
+                eventInfo.style.height = '0';
+                eventInfo.style.padding = '0';
+            }, 5000);
+        }
+
+        // 上个月
+        document.getElementById('prevMonth').addEventListener('click', () => {
+            currentMonth--;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            }
+            generateCalendar();
+        });
+
+        // 下个月
+        document.getElementById('nextMonth').addEventListener('click', () => {
+            currentMonth++;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            generateCalendar();
+        });
+
+        // 主题切换功能
+        const themeToggle = document.getElementById('themeToggle');
+        const icon = themeToggle.querySelector('i');
+        
+        // 检查本地存储中的主题偏好
+        if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            icon.classList.replace('fa-moon', 'fa-sun');
+        }
+        
+        themeToggle.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            
+            if (document.documentElement.classList.contains('dark')) {
+                localStorage.setItem('theme', 'dark');
+                icon.classList.replace('fa-moon', 'fa-sun');
+            } else {
+                localStorage.setItem('theme', 'light');
+                icon.classList.replace('fa-sun', 'fa-moon');
+            }
+        });
+
+        // 初始化日历
+        generateCalendar();
+    </script>
+</body>
+</html>

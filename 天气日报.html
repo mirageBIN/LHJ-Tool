@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>梁惠辑的专属工具箱 - 天气预报</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --secondary: #f43f5e;
+            --bg: #f8fafc;
+            --text: #1e293b;
+            --card-bg: #ffffff;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --sun: #f59e0b;
+            --moon: #94a3b8;
+            --rain: #60a5fa;
+            --cloud: #9ca3af;
+        }
+
+        .dark {
+            --primary: #818cf8;
+            --secondary: #fb7185;
+            --bg: #1e293b;
+            --text: #f8fafc;
+            --card-bg: #334155;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+            --moon: #e2e8f0;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            transition: all 0.3s ease;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            box-shadow: var(--shadow);
+            border-radius: 1rem;
+            transition: all 0.3s ease;
+            transform: translateY(0);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .theme-toggle {
+            background: linear-gradient(145deg, var(--primary), var(--secondary));
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .sun {
+            color: var(--sun);
+        }
+
+        .moon {
+            color: var(--moon);
+        }
+
+        .rain {
+            color: var(--rain);
+        }
+
+        .cloud {
+            color: var(--cloud);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        .floating {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ripple:after {
+            content: "";
+            display: block;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            background-image: radial-gradient(circle, #fff 10%, transparent 10.01%);
+            background-repeat: no-repeat;
+            background-position: 50%;
+            transform: scale(10, 10);
+            opacity: 0;
+            transition: transform .5s, opacity 1s;
+        }
+
+        .ripple:active:after {
+            transform: scale(0, 0);
+            opacity: .3;
+            transition: 0s;
+        }
+
+        .temperature-bar {
+            height: 4px;
+            border-radius: 2px;
+            background: linear-gradient(90deg, #60a5fa, #f43f5e);
+        }
+
+        .aqi-excellent { background-color: #10b981; }
+        .aqi-good { background-color: #84cc16; }
+        .aqi-light { background-color: #f59e0b; }
+        .aqi-moderate { background-color: #f97316; }
+        .aqi-heavy { background-color: #ef4444; }
+        .aqi-severe { background-color: #8b5cf6; }
+
+        .hourly-forecast::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .hourly-forecast::-webkit-scrollbar-thumb {
+            background-color: var(--primary);
+            border-radius: 3px;
+        }
+
+        .hourly-forecast::-webkit-scrollbar-track {
+            background-color: var(--card-bg);
+        }
+
+        .disclaimer-card {
+            background: linear-gradient(145deg, var(--primary), var(--secondary));
+            color: white;
+        }
+
+        .disclaimer-card:hover {
+            transform: translateY(-5px) scale(1.02);
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+    <div class="max-w-6xl mx-auto">
+        <!-- 主题切换按钮 -->
+        <div class="flex justify-end mb-6">
+            <button id="themeToggle" class="theme-toggle w-12 h-12 rounded-full flex items-center justify-center text-white ripple">
+                <i class="fas fa-moon text-xl"></i>
+            </button>
+        </div>
+
+        <!-- 标题 -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold mb-2">梁惠辑的专属天气</h1>
+            <p class="text-lg opacity-80">实时天气信息，助您出行无忧</p>
+        </div>
+
+        <!-- 天气卡片网格 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- 免责声明卡片 -->
+            <a href="https://www.msn.cn/zh-cn/weather/forecast/in-%E6%81%A9%E5%B9%B3%E5%B8%82?loc=eyJsIjoi5oGp5bmz5biCIiwiYyI6IuS4reWNjuS6uuawkeWFseWSjOWbvSIsImkiOiJDTiIsIngiOiIxMTIuMjk1OCIsInkiOiIyMi4xNzMifQ%3D%3D&weadegreetype=C&ocid=ansmsnweather" 
+               target="_blank" 
+               class="card disclaimer-card p-6 col-span-1 md:col-span-2 lg:col-span-3 ripple">
+                <div class="flex flex-col items-center text-center">
+                    <i class="fas fa-info-circle text-4xl mb-4"></i>
+                    <h2 class="text-xl font-semibold mb-2">此天气预报仅供娱乐</h2>
+                    <p class="text-lg">正经的点我就是了</p>
+                </div>
+            </a>
+
+            <!-- 当前位置和当前天气 -->
+            <div class="card p-6 col-span-1 md:col-span-2 lg:col-span-3">
+                <div class="flex flex-col md:flex-row items-center justify-between">
+                    <div class="flex items-center mb-4 md:mb-0">
+                        <i class="fas fa-map-marker-alt text-xl mr-2 text-red-500"></i>
+                        <div>
+                            <h2 id="location" class="text-xl font-semibold">广东江门恩平</h2>
+                            <p id="update-time" class="text-sm opacity-80">2023年10月15日 14:30 更新</p>
+                        </div>
+                    </div>
+                    <button id="refresh-btn" class="px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-700 ripple flex items-center">
+                        <i class="fas fa-sync-alt mr-2"></i>
+                        <span>刷新数据</span>
+                    </button>
+                </div>
+
+                <div class="flex flex-col md:flex-row items-center justify-between mt-6">
+                    <div class="flex items-center mb-6 md:mb-0">
+                        <div class="text-6xl mr-4 sun floating">
+                            <i class="fas fa-sun"></i>
+                        </div>
+                        <div>
+                            <div class="text-5xl font-bold" id="current-temp">23°</div>
+                            <div class="text-lg" id="weather-condition">晴朗</div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                            <div class="text-sm opacity-80">体感温度</div>
+                            <div class="text-xl font-semibold" id="feels-like">22°</div>
+                        </div>
+                        <div>
+                            <div class="text-sm opacity-80">湿度</div>
+                            <div class="text-xl font-semibold" id="humidity">45%</div>
+                        </div>
+                        <div>
+                            <div class="text-sm opacity-80">风速</div>
+                            <div class="text-xl font-semibold" id="wind-speed">12 km/h</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 空气质量 -->
+            <div class="card p-6">
+                <h2 class="text-xl font-semibold mb-4 flex items-center">
+                    <i class="fas fa-wind mr-2"></i>
+                    <span>空气质量</span>
+                </h2>
+                <div class="flex items-center justify-between mb-4">
+                    <div id="aqi-value" class="text-4xl font-bold rounded-full w-20 h-20 flex items-center justify-center text-white aqi-excellent">42</div>
+                    <div>
+                        <div class="text-lg font-semibold" id="aqi-level">优</div>
+                        <div class="text-sm opacity-80" id="primary-pollutant">主要污染物: PM2.5</div>
+                    </div>
+                </div>
+                <div class="text-sm mb-2 flex justify-between">
+                    <span>0</span>
+                    <span>50</span>
+                    <span>100</span>
+                    <span>150</span>
+                    <span>200</span>
+                    <span>300</span>
+                    <span>500</span>
+                </div>
+                <div class="flex h-2 rounded-full overflow-hidden mb-2">
+                    <div class="aqi-excellent w-1/6"></div>
+                    <div class="aqi-good w-1/6"></div>
+                    <div class="aqi-light w-1/6"></div>
+                    <div class="aqi-moderate w-1/6"></div>
+                    <div class="aqi-heavy w-1/6"></div>
+                    <div class="aqi-severe w-1/6"></div>
+                </div>
+                <div class="text-xs opacity-80">空气质量指数(AQI)</div>
+            </div>
+
+            <!-- 今日温度范围 -->
+            <div class="card p-6">
+                <h2 class="text-xl font-semibold mb-4 flex items-center">
+                    <i class="fas fa-temperature-high mr-2"></i>
+                    <span>今日温度</span>
+                </h2>
+                <div class="flex items-center justify-between mb-2">
+                    <div class="text-2xl font-bold" id="today-high">26°</div>
+                    <div class="text-lg opacity-80">最高</div>
+                </div>
+                <div class="temperature-bar w-full mb-2"></div>
+                <div class="flex items-center justify-between">
+                    <div class="text-lg opacity-80">最低</div>
+                    <div class="text-2xl font-bold" id="today-low">18°</div>
+                </div>
+            </div>
+
+            <!-- 小时预报 -->
+            <div class="card p-6 col-span-1 md:col-span-2 lg:col-span-3">
+                <h2 class="text-xl font-semibold mb-4 flex items-center">
+                    <i class="fas fa-clock mr-2"></i>
+                    <span>24小时预报</span>
+                </h2>
+                <div class="hourly-forecast flex overflow-x-auto pb-2 space-x-4">
+                    <!-- 小时预报项目将通过JavaScript动态生成 -->
+                </div>
+            </div>
+
+            <!-- 多日预报 -->
+            <div class="card p-6 col-span-1 md:col-span-2 lg:col-span-3">
+                <h2 class="text-xl font-semibold mb-4 flex items-center">
+                    <i class="fas fa-calendar-alt mr-2"></i>
+                    <span>7日预报</span>
+                </h2>
+                <div class="space-y-4">
+                    <!-- 多日预报项目将通过JavaScript动态生成 -->
+                </div>
+            </div>
+
+            <!-- 天气指数 -->
+            <div class="card p-6">
+                <h2 class="text-xl font-semibold mb-4 flex items-center">
+                    <i class="fas fa-chart-line mr-2"></i>
+                    <span>天气指数</span>
+                </h2>
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <span>紫外线指数</span>
+                            <span class="font-semibold">中等</span>
+                        </div>
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div class="bg-yellow-500 h-2 rounded-full" style="width: 50%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <span>穿衣指数</span>
+                            <span class="font-semibold">舒适</span>
+                        </div>
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div class="bg-green-500 h-2 rounded-full" style="width: 70%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <span>洗车指数</span>
+                            <span class="font-semibold">适宜</span>
+                        </div>
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                            <div class="bg-blue-500 h-2 rounded-full" style="width: 80%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 生活指数 -->
+            <div class="card p-6">
+                <h2 class="text-xl font-semibold mb-4 flex items-center">
+                    <i class="fas fa-umbrella-beach mr-2"></i>
+                    <span>生活指数</span>
+                </h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="p-3 rounded-lg bg-gray-100 dark:bg-gray-700">
+                        <div class="flex items-center mb-1">
+                            <i class="fas fa-running text-sm mr-2"></i>
+                            <span class="text-sm">运动指数</span>
+                        </div>
+                        <div class="font-semibold">适宜</div>
+                    </div>
+                    <div class="p-3 rounded-lg bg-gray-100 dark:bg-gray-700">
+                        <div class="flex items-center mb-1">
+                            <i class="fas fa-car text-sm mr-2"></i>
+                            <span class="text-sm">出行指数</span>
+                        </div>
+                        <div class="font-semibold">良好</div>
+                    </div>
+                    <div class="p-3 rounded-lg bg-gray-100 dark:bg-gray-700">
+                        <div class="flex items-center mb-1">
+                            <i class="fas fa-allergies text-sm mr-2"></i>
+                            <span class="text-sm">过敏指数</span>
+                        </div>
+                        <div class="font-semibold">低发</div>
+                    </div>
+                    <div class="p-3 rounded-lg bg-gray-100 dark:bg-gray-700">
+                        <div class="flex items-center mb-1">
+                            <i class="fas fa-ice-cream text-sm mr-2"></i>
+                            <span class="text-sm">空调指数</span>
+                        </div>
+                        <div class="font-semibold">较少开启</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 日出日落 -->
+            <div class="card p-6">
+                <h2 class="text-xl font-semibold mb-4 flex items-center">
+                    <i class="fas fa-sun mr-2 sun"></i>
+                    <span>日出日落</span>
+                </h2>
+                <div class="flex items-center justify-between mb-4">
+                    <div class="text-center">
+                        <div class="text-3xl sun mb-1">
+                            <i class="fas fa-sunrise"></i>
+                        </div>
+                        <div class="font-semibold" id="sunrise">06:23</div>
+                        <div class="text-sm opacity-80">日出</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl sun mb-1">
+                            <i class="fas fa-sunset"></i>
+                        </div>
+                        <div class="font-semibold" id="sunset">17:45</div>
+                        <div class="text-sm opacity-80">日落</div>
+                    </div>
+                </div>
+                <div class="relative h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-r from-yellow-500 to-gray-400"></div>
+                    <div id="sun-progress" class="absolute top-0 left-0 h-full bg-white dark:bg-gray-800" style="width: 60%"></div>
+                </div>
+                <div class="flex justify-between text-xs mt-1">
+                    <span>白天 11h 22m</span>
+                    <span>黑夜 12h 38m</span>
+                </div>
+            </div>
+
+            <!-- 月出月落 -->
+            <div class="card p-6">
+                <h2 class="text-xl font-semibold mb-4 flex items-center">
+                    <i class="fas fa-moon mr-2 moon"></i>
+                    <span>月出月落</span>
+                </h2>
+                <div class="flex items-center justify-between mb-4">
+                    <div class="text-center">
+                        <div class="text-3xl moon mb-1">
+                            <i class="fas fa-moon"></i>
+                        </div>
+                        <div class="font-semibold" id="moonrise">14:12</div>
+                        <div class="text-sm opacity-80">月出</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl moon mb-1">
+                            <i class="fas fa-moon"></i>
+                        </div>
+                        <div class="font-semibold" id="moonset">02:35</div>
+                        <div class="text-sm opacity-80">月落</div>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <div class="text-lg font-semibold" id="moon-phase">上弦月</div>
+                    <div class="text-sm opacity-80">月相</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 模拟天气数据
+        const weatherData = {
+            location: "江门市，恩平市",
+            updateTime: "2023年10月15日 14:30",
+            currentTemp: 23,
+            feelsLike: 22,
+            weatherCondition: "晴朗",
+            humidity: "45%",
+            windSpeed: "12 km/h",
+            aqi: 42,
+            aqiLevel: "优",
+            primaryPollutant: "PM2.5",
+            todayHigh: 26,
+            todayLow: 18,
+            hourlyForecast: [
+                { time: "现在", temp: 23, icon: "sun", condition: "晴朗" },
+                { time: "15:00", temp: 24, icon: "sun", condition: "晴朗" },
+                { time: "16:00", temp: 24, icon: "sun", condition: "晴朗" },
+                { time: "17:00", temp: 23, icon: "sun", condition: "晴朗" },
+                { time: "18:00", temp: 22, icon: "cloud-sun", condition: "多云" },
+                { time: "19:00", temp: 21, icon: "cloud", condition: "多云" },
+                { time: "20:00", temp: 20, icon: "cloud", condition: "多云" },
+                { time: "21:00", temp: 19, icon: "cloud-moon", condition: "多云" },
+                { time: "22:00", temp: 18, icon: "moon", condition: "晴朗" },
+                { time: "23:00", temp: 17, icon: "moon", condition: "晴朗" },
+                { time: "00:00", temp: 17, icon: "moon", condition: "晴朗" },
+                { time: "01:00", temp: 16, icon: "moon", condition: "晴朗" },
+                { time: "02:00", temp: 16, icon: "moon", condition: "晴朗" },
+                { time: "03:00", temp: 15, icon: "moon", condition: "晴朗" },
+                { time: "04:00", temp: 15, icon: "moon", condition: "晴朗" },
+                { time: "05:00", temp: 15, icon: "moon", condition: "晴朗" },
+                { time: "06:00", temp: 16, icon: "cloud-sun", condition: "多云" },
+                { time: "07:00", temp: 17, icon: "cloud-sun", condition: "多云" },
+                { time: "08:00", temp: 18, icon: "cloud-sun", condition: "多云" },
+                { time: "09:00", temp: 20, icon: "sun", condition: "晴朗" },
+                { time: "10:00", temp: 22, icon: "sun", condition: "晴朗" },
+                { time: "11:00", temp: 23, icon: "sun", condition: "晴朗" },
+                { time: "12:00", temp: 24, icon: "sun", condition: "晴朗" }
+            ],
+            dailyForecast: [
+                { day: "今天", date: "10/15", high: 26, low: 18, icon: "sun", condition: "晴朗" },
+                { day: "周一", date: "10/16", high: 25, low: 17, icon: "cloud-sun", condition: "多云" },
+                { day: "周二", date: "10/17", high: 24, low: 16, icon: "cloud", condition: "阴天" },
+                { day: "周三", date: "10/18", high: 22, low: 15, icon: "cloud-rain", condition: "小雨" },
+                { day: "周四", date: "10/19", high: 21, low: 14, icon: "cloud-sun", condition: "多云" },
+                { day: "周五", date: "10/20", high: 23, low: 15, icon: "sun", condition: "晴朗" },
+                { day: "周六", date: "10/21", high: 24, low: 16, icon: "sun", condition: "晴朗" }
+            ],
+            sunrise: "06:23",
+            sunset: "17:45",
+            moonrise: "14:12",
+            moonset: "02:35",
+            moonPhase: "上弦月"
+        };
+
+        // 更新天气数据
+        function updateWeatherData() {
+            // 基本信息
+            document.getElementById('location').textContent = weatherData.location;
+            document.getElementById('update-time').textContent = weatherData.updateTime + " 更新";
+            document.getElementById('current-temp').textContent = weatherData.currentTemp + "°";
+            document.getElementById('feels-like').textContent = weatherData.feelsLike + "°";
+            document.getElementById('weather-condition').textContent = weatherData.weatherCondition;
+            document.getElementById('humidity').textContent = weatherData.humidity;
+            document.getElementById('wind-speed').textContent = weatherData.windSpeed;
+            
+            // 空气质量
+            document.getElementById('aqi-value').textContent = weatherData.aqi;
+            document.getElementById('aqi-level').textContent = weatherData.aqiLevel;
+            document.getElementById('primary-pollutant').textContent = "主要污染物: " + weatherData.primaryPollutant;
+            
+            // 更新AQI颜色
+            const aqiValue = document.getElementById('aqi-value');
+            aqiValue.className = "text-4xl font-bold rounded-full w-20 h-20 flex items-center justify-center text-white";
+            if (weatherData.aqi <= 50) {
+                aqiValue.classList.add('aqi-excellent');
+            } else if (weatherData.aqi <= 100) {
+                aqiValue.classList.add('aqi-good');
+            } else if (weatherData.aqi <= 150) {
+                aqiValue.classList.add('aqi-light');
+            } else if (weatherData.aqi <= 200) {
+                aqiValue.classList.add('aqi-moderate');
+            } else if (weatherData.aqi <= 300) {
+                aqiValue.classList.add('aqi-heavy');
+            } else {
+                aqiValue.classList.add('aqi-severe');
+            }
+            
+            // 今日温度
+            document.getElementById('today-high').textContent = weatherData.todayHigh + "°";
+            document.getElementById('today-low').textContent = weatherData.todayLow + "°";
+            
+            // 日出日落
+            document.getElementById('sunrise').textContent = weatherData.sunrise;
+            document.getElementById('sunset').textContent = weatherData.sunset;
+            
+            // 月出月落
+            document.getElementById('moonrise').textContent = weatherData.moonrise;
+            document.getElementById('moonset').textContent = weatherData.moonset;
+            document.getElementById('moon-phase').textContent = weatherData.moonPhase;
+            
+            // 小时预报
+            const hourlyContainer = document.querySelector('.hourly-forecast');
+            hourlyContainer.innerHTML = '';
+            weatherData.hourlyForecast.forEach(hour => {
+                const hourElement = document.createElement('div');
+                hourElement.className = 'flex flex-col items-center p-3 rounded-lg bg-gray-100 dark:bg-gray-700 min-w-[70px]';
+                hourElement.innerHTML = `
+                    <div class="font-semibold">${hour.time}</div>
+                    <div class="text-2xl my-2 ${hour.icon === 'sun' ? 'sun' : hour.icon === 'moon' ? 'moon' : 'cloud'}">
+                        <i class="fas fa-${hour.icon}"></i>
+                    </div>
+                    <div class="font-semibold">${hour.temp}°</div>
+                `;
+                hourlyContainer.appendChild(hourElement);
+            });
+            
+            // 多日预报
+            const dailyContainer = document.querySelector('.card.p-6.col-span-1.md\\:col-span-2.lg\\:col-span-3 > .space-y-4');
+            dailyContainer.innerHTML = '';
+            weatherData.dailyForecast.forEach(day => {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'flex items-center justify-between p-3 rounded-lg bg-gray-100 dark:bg-gray-700';
+                dayElement.innerHTML = `
+                    <div class="w-20 font-semibold">${day.day}</div>
+                    <div class="w-16 text-sm opacity-80">${day.date}</div>
+                    <div class="text-xl ${day.icon === 'sun' ? 'sun' : day.icon === 'moon' ? 'moon' : 'cloud'}">
+                        <i class="fas fa-${day.icon}"></i>
+                    </div>
+                    <div class="w-24 text-sm opacity-80">${day.condition}</div>
+                    <div class="flex items-center space-x-4">
+                        <span class="font-semibold">${day.high}°</span>
+                        <span class="opacity-80">${day.low}°</span>
+                    </div>
+                `;
+                dailyContainer.appendChild(dayElement);
+            });
+            
+            // 更新太阳位置
+            updateSunPosition();
+        }
+
+        // 更新太阳位置指示器
+        function updateSunPosition() {
+            const now = new Date();
+            const sunriseParts = weatherData.sunrise.split(':');
+            const sunsetParts = weatherData.sunset.split(':');
+            
+            const sunriseTime = new Date();
+            sunriseTime.setHours(parseInt(sunriseParts[0]), parseInt(sunriseParts[1]), 0, 0);
+            
+            const sunsetTime = new Date();
+            sunsetTime.setHours(parseInt(sunsetParts[0]), parseInt(sunsetParts[1]), 0, 0);
+            
+            const totalDaylight = sunsetTime - sunriseTime;
+            const elapsed = now - sunriseTime;
+            
+            let progress = (elapsed / totalDaylight) * 100;
+            progress = Math.max(0, Math.min(100, progress));
+            
+            document.getElementById('sun-progress').style.width = `${progress}%`;
+        }
+
+        // 刷新数据
+        document.getElementById('refresh-btn').addEventListener('click', function() {
+            // 模拟刷新动画
+            this.querySelector('i').classList.add('animate-spin');
+            setTimeout(() => {
+                this.querySelector('i').classList.remove('animate-spin');
+                
+                // 更新时间为当前时间
+                const now = new Date();
+                weatherData.updateTime = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${now.getHours()}:${now.getMinutes().toString().padStart(2, '0')}`;
+                
+                // 随机变化一些数据以模拟刷新
+                weatherData.currentTemp = Math.round(weatherData.currentTemp + (Math.random() * 2 - 1));
+                weatherData.feelsLike = Math.round(weatherData.feelsLike + (Math.random() * 2 - 1));
+                weatherData.humidity = Math.round(weatherData.humidity + (Math.random() * 10 - 5)) + "%";
+                weatherData.aqi = Math.round(weatherData.aqi + (Math.random() * 10 - 5));
+                
+                updateWeatherData();
+            }, 1000);
+        });
+
+        // 主题切换功能
+        const themeToggle = document.getElementById('themeToggle');
+        const icon = themeToggle.querySelector('i');
+        
+        // 检查本地存储中的主题偏好
+        if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            icon.classList.replace('fa-moon', 'fa-sun');
+        }
+        
+        themeToggle.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            
+            if (document.documentElement.classList.contains('dark')) {
+                localStorage.setItem('theme', 'dark');
+                icon.classList.replace('fa-moon', 'fa-sun');
+            } else {
+                localStorage.setItem('theme', 'light');
+                icon.classList.replace('fa-sun', 'fa-moon');
+            }
+        });
+
+        // 初始化天气数据
+        updateWeatherData();
+
+        // 添加淡入动画
+        const cards = document.querySelectorAll('.card');
+        cards.forEach((card, index) => {
+            card.style.animationDelay = `${index * 0.1}s`;
+            card.classList.add('fade-in');
+        });
+    </script>
+</body>
+</html>
